@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Lint & type check ───────────────────────────────────────────────────────
+  lint:
+    name: Lint (ruff + black)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff black
+
+      - name: ruff
+        run: ruff check nflasher/
+
+      - name: black (check only)
+        run: black --check --diff nflasher/
+
+  # ── Unit tests ───────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pyusb pytest pytest-cov
+          pip install -e .
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=nflasher --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          fail_ci_if_error: false
+
+  # ── Package build ────────────────────────────────────────────────────────────
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+
+      - name: Check dist
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

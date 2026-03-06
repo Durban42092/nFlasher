@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1B2A"/>
+      <stop offset="100%" style="stop-color:#1A2A4A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FC3F7"/>
+      <stop offset="100%" style="stop-color:#0D47A1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="4" y="4" width="120" height="120" rx="22" ry="22" fill="url(#bg)" stroke="#2A3A5A" stroke-width="2"/>
+
+  <!-- Phone outline -->
+  <rect x="38" y="18" width="52" height="80" rx="8" ry="8" fill="none" stroke="#4FC3F7" stroke-width="3"/>
+  <rect x="42" y="24" width="44" height="54" rx="3" ry="3" fill="#0A1628"/>
+
+  <!-- Lightning bolt (flash symbol) -->
+  <polygon points="68,28 56,50 64,50 60,72 74,48 65,48" fill="url(#accent)"/>
+
+  <!-- Bottom partition bars -->
+  <rect x="38" y="104" width="14" height="8" rx="2" fill="#4FC3F7" opacity="0.9"/>
+  <rect x="55" y="104" width="14" height="8" rx="2" fill="#1565C0" opacity="0.9"/>
+  <rect x="72" y="104" width="14" height="8" rx="2" fill="#0D47A1" opacity="0.7"/>
+
+  <!-- nF text -->
+  <text x="10" y="124" font-family="monospace" font-size="11" font-weight="bold" fill="#4FC3F7" opacity="0.6">nF</text>
+</svg>

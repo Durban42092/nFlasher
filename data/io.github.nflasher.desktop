@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=nFlasher
+GenericName=Samsung Flash Tool
+Comment=Flash firmware to Samsung devices via nphonecli/odin4/heimdall
+Exec=nflasher
+Icon=nflasher
+Terminal=false
+Categories=System;GTK;
+Keywords=samsung;flash;odin;heimdall;android;firmware;
+StartupNotify=true
+StartupWMClass=nflasher

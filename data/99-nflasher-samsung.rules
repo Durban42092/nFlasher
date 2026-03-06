@@ -1,0 +1,17 @@
+# nFlasher — Samsung Device udev Rules
+# Install: sudo cp 99-nflasher-samsung.rules /etc/udev/rules.d/
+#          sudo udevadm control --reload-rules
+#          sudo udevadm trigger
+
+# Samsung USB devices (covers all known Odin/Download Mode PIDs)
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="6860", MODE="0660", GROUP="plugdev", TAG+="uaccess", SYMLINK+="samsung-odin"
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="685d", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="6601", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="6640", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="1234", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# Generic Samsung USB (ADB / MTP / CDC)
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# Older S-Boot Download Mode
+SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6010", MODE="0660", GROUP="plugdev", TAG+="uaccess"

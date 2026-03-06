@@ -1,0 +1,76 @@
+name: Bug Report
+description: Something isn't working correctly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill in as much as you can — especially the log output.
+
+  - type: input
+    id: version
+    attributes:
+      label: nFlasher version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Flash backend
+      options:
+        - nphonecli
+        - odin4
+        - heimdall
+    validations:
+      required: true
+
+  - type: input
+    id: backend_version
+    attributes:
+      label: Backend version
+      placeholder: "nphonecli 0.4.2"
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      placeholder: "Samsung Galaxy S21 (SM-G991B)"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Linux distribution
+      placeholder: "Ubuntu 24.04 / Arch / Fedora 40"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect device in Download Mode
+        2. Select AP file
+        3. Click START
+        4. ...
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Full log output
+      description: Copy the complete contents of the log panel.
+      render: text
+    validations:
+      required: true

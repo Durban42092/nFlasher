@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+pip-wheel-metadata/
+share/python-wheels/
+
+# Virtual envs
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Distribution / packaging
+.Python
+develop-eggs/
+downloads/
+eggs/
+parts/
+sdist/
+var/
+wheels/
+*.tar.gz
+*.whl
+
+# Testing
+.tox/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# nFlasher runtime artifacts
+*.pit
+*.log
+nflasher_*.pit
+
+# Flatpak build
+.flatpak-builder/
+repo/
