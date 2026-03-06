@@ -1,6 +1,6 @@
 [build-system]
 requires      = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name            = "nflasher"
@@ -66,7 +66,7 @@ addopts = "--ignore=tests/test_ui.py"
 
 [tool.coverage.run]
 omit = [
-    "nflasher/ui.py",   # GTK4 GUI — not importable in headless CI
+    "*/nflasher/ui.py",  # GTK4 GUI — not importable in headless CI
     "tests/*",
 ]
 
