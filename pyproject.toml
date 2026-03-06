@@ -59,6 +59,24 @@ line-length = 100
 select = ["E", "F", "W", "I", "UP"]
 ignore = ["E501"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# ui.py requires a live GTK4 display — skip it in headless CI
+addopts = "--ignore=tests/test_ui.py"
+
+[tool.coverage.run]
+omit = [
+    "nflasher/ui.py",   # GTK4 GUI — not importable in headless CI
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise ImportError",
+]
+
 [tool.mypy]
 python_version         = "3.10"
 warn_return_any        = true

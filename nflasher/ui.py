@@ -14,11 +14,17 @@ import tempfile
 import threading
 from datetime import datetime
 
-import gi
+try:
+    import gi
 
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Adw", "1")
+    from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+except (ImportError, ValueError) as _gi_err:
+    raise ImportError(
+        "nFlasher UI requires GTK4 and libadwaita. "
+        "Install with: sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1"
+    ) from _gi_err
 
 from .backend import (  # noqa: E402
     DeviceInfo,
