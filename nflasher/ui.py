@@ -35,17 +35,17 @@ from .backend import (  # noqa: E402
 )
 from .pit import PITParseError, parse_pit, pit_summary  # noqa: E402
 
-APP_ID      = "io.github.nflasher"
-APP_NAME    = "nFlasher"
+APP_ID = "io.github.nflasher"
+APP_NAME = "nFlasher"
 APP_VERSION = "1.0.0"
 
 # Odin-style partition slots
 PARTITION_SLOTS = [
-    ("BL",       "--bl",       "Bootloader / Sboot / LK",       "*.tar *.tar.md5 *.bin"),
-    ("AP",       "--ap",       "Android Platform / PDA / System","*.tar *.tar.md5 *.zip"),
-    ("CP",       "--cp",       "Modem / Radio baseband",         "*.tar *.tar.md5 *.bin"),
-    ("CSC",      "--csc",      "Country Specific Code / Vendor", "*.tar *.tar.md5"),
-    ("USERDATA", "--userdata", "User data partition",            "*.tar *.tar.md5 *.img"),
+    ("BL", "--bl", "Bootloader / Sboot / LK", "*.tar *.tar.md5 *.bin"),
+    ("AP", "--ap", "Android Platform / PDA / System", "*.tar *.tar.md5 *.zip"),
+    ("CP", "--cp", "Modem / Radio baseband", "*.tar *.tar.md5 *.bin"),
+    ("CSC", "--csc", "Country Specific Code / Vendor", "*.tar *.tar.md5"),
+    ("USERDATA", "--userdata", "User data partition", "*.tar *.tar.md5 *.img"),
 ]
 
 
@@ -232,11 +232,12 @@ window {
 
 # ── Partition row widget ─────────────────────────────────────────────────────
 
+
 class PartitionRow(Gtk.Box):
     def __init__(self, slot: str, flag: str, tooltip: str, patterns: str):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.slot     = slot
-        self.flag     = flag
+        self.slot = slot
+        self.flag = flag
         self.filepath = None
         self.set_margin_top(4)
         self.set_margin_bottom(4)
@@ -316,6 +317,7 @@ class PartitionRow(Gtk.Box):
 
 # ── Main window ──────────────────────────────────────────────────────────────
 
+
 class NFlasherWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
@@ -323,13 +325,13 @@ class NFlasherWindow(Adw.ApplicationWindow):
         self.set_default_size(960, 780)
         self.set_size_request(800, 600)
 
-        self._backend      = detect_backend()
-        self._options      = FlashOptions()
-        self._pit_data     = None
+        self._backend = detect_backend()
+        self._options = FlashOptions()
+        self._pit_data = None
         self._flash_engine = None
-        self._device_mgr   = None
+        self._device_mgr = None
         self._partition_rows = []
-        self._pit_row        = None
+        self._pit_row = None
 
         self._build_ui()
         self._init_backend()
@@ -540,28 +542,33 @@ class NFlasherWindow(Adw.ApplicationWindow):
             return chk
 
         mksection("FLASH BEHAVIOUR")
-        mkcheck("Auto Reboot",
-                "Reboot device automatically after successful flash",
-                "reboot", True)
-        mkcheck("T-Flash (SD card flash)",
-                "Flash to SD card instead of internal eMMC",
-                "t_flash", False)
+        mkcheck("Auto Reboot", "Reboot device automatically after successful flash", "reboot", True)
+        mkcheck(
+            "T-Flash (SD card flash)", "Flash to SD card instead of internal eMMC", "t_flash", False
+        )
 
         mksection("SAFETY OPTIONS")
-        mkcheck("EFS Clear",
-                "⚠ Wipe EFS partition (IMEI, network certs) — irreversible",
-                "efs_clear", False)
-        mkcheck("Bootloader Update",
-                "Allow bootloader-updating flashes (required for BL)",
-                "bootloader_update", False)
-        mkcheck("Reset Flash Counter",
-                "Reset binary/flash counter (trip-wire) on device",
-                "reset_time", False)
+        mkcheck(
+            "EFS Clear",
+            "⚠ Wipe EFS partition (IMEI, network certs) — irreversible",
+            "efs_clear",
+            False,
+        )
+        mkcheck(
+            "Bootloader Update",
+            "Allow bootloader-updating flashes (required for BL)",
+            "bootloader_update",
+            False,
+        )
+        mkcheck(
+            "Reset Flash Counter",
+            "Reset binary/flash counter (trip-wire) on device",
+            "reset_time",
+            False,
+        )
 
         mksection("VERIFICATION")
-        mkcheck("Verify Flash",
-                "Read-back and verify written data (slower)",
-                "verify", False)
+        mkcheck("Verify Flash", "Read-back and verify written data (slower)", "verify", False)
 
         mksection("BACKEND SELECTION")
         backend_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -585,7 +592,9 @@ class NFlasherWindow(Adw.ApplicationWindow):
         frame.set_label("Connected Device")
         frame.add_css_class("nf-device-panel")
 
-        self._device_info_lbl = Gtk.Label(label="No device connected.\nPut device into Download Mode\n(Power + Volume Down + Home / Bixby)")
+        self._device_info_lbl = Gtk.Label(
+            label="No device connected.\nPut device into Download Mode\n(Power + Volume Down + Home / Bixby)"
+        )
         self._device_info_lbl.add_css_class("nf-device-info")
         self._device_info_lbl.set_justify(Gtk.Justification.LEFT)
         self._device_info_lbl.set_xalign(0)
@@ -604,7 +613,11 @@ class NFlasherWindow(Adw.ApplicationWindow):
         rbt_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         vbox.append(rbt_row)
 
-        for mode, label in [("normal", "🔄 Reboot"), ("download", "⬇ Download Mode"), ("recovery", "🔧 Recovery")]:
+        for mode, label in [
+            ("normal", "🔄 Reboot"),
+            ("download", "⬇ Download Mode"),
+            ("recovery", "🔧 Recovery"),
+        ]:
             btn = Gtk.Button(label=label)
             btn.add_css_class("nf-browse-btn")
             btn.connect("clicked", lambda _, m=mode: self._on_reboot(m))
@@ -644,7 +657,7 @@ class NFlasherWindow(Adw.ApplicationWindow):
         tv.set_editable(False)
         tv.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         tv.add_css_class("nf-log-view")
-        self._log_view   = tv
+        self._log_view = tv
         self._log_buffer = tv.get_buffer()
         self._setup_log_tags()
         scroll.set_child(tv)
@@ -709,18 +722,18 @@ class NFlasherWindow(Adw.ApplicationWindow):
 
     def _setup_log_tags(self):
         buf = self._log_buffer
-        buf.create_tag("ok",    foreground="#66BB6A")
-        buf.create_tag("warn",  foreground="#FFA726")
+        buf.create_tag("ok", foreground="#66BB6A")
+        buf.create_tag("warn", foreground="#FFA726")
         buf.create_tag("error", foreground="#EF5350")
-        buf.create_tag("info",  foreground="#4FC3F7")
-        buf.create_tag("dim",   foreground="#546E7A")
+        buf.create_tag("info", foreground="#4FC3F7")
+        buf.create_tag("dim", foreground="#546E7A")
 
     def _log_event(self, msg: str):
         GLib.idle_add(self._append_log, msg)
 
     def _append_log(self, msg: str):
         buf = self._log_buffer
-        ts  = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         end = buf.get_end_iter()
 
         # Timestamp
@@ -754,19 +767,19 @@ class NFlasherWindow(Adw.ApplicationWindow):
 
     def _init_backend(self):
         self._flash_engine = FlashEngine(
-            on_log      = self._log_event,
-            on_progress = self._on_flash_progress,
-            on_done     = self._on_flash_done,
-            backend     = self._backend,
+            on_log=self._log_event,
+            on_progress=self._on_flash_progress,
+            on_done=self._on_flash_done,
+            backend=self._backend,
         )
         self._pit_mgr = PITManager(
-            on_log  = self._log_event,
-            backend = self._backend,
+            on_log=self._log_event,
+            backend=self._backend,
         )
         self._device_mgr = DeviceManager(
-            on_state_change = self._on_device_state,
-            on_log          = self._log_event,
-            backend         = self._backend,
+            on_state_change=self._on_device_state,
+            on_log=self._log_event,
+            backend=self._backend,
         )
         self._device_mgr.start_polling()
 
@@ -845,8 +858,9 @@ class NFlasherWindow(Adw.ApplicationWindow):
             partitions.insert(0, pit_p)
 
         if not partitions:
-            self._show_dialog("No Partitions Selected",
-                              "Enable and select at least one partition file to flash.")
+            self._show_dialog(
+                "No Partitions Selected", "Enable and select at least one partition file to flash."
+            )
             return
 
         self._flash_btn.set_sensitive(False)
@@ -867,9 +881,11 @@ class NFlasherWindow(Adw.ApplicationWindow):
         fd, tmp = tempfile.mkstemp(suffix=".pit", prefix="nflasher_")
         os.close(fd)
         self._log_event(f"[pit] Downloading PIT from device → {tmp}")
+
         def do_dl():
             ok = self._pit_mgr.download_pit(tmp)
             GLib.idle_add(self._pit_downloaded, ok, tmp)
+
         threading.Thread(target=do_dl, daemon=True).start()
 
     def _pit_downloaded(self, ok: bool, path: str):
@@ -900,7 +916,9 @@ class NFlasherWindow(Adw.ApplicationWindow):
             self._pit_data = pit
             summary = pit_summary(pit)
             self._pit_buffer.set_text(summary)
-            self._log_event(f"[pit] Loaded PIT: {os.path.basename(path)} — {pit.entry_count} partitions (v{pit.version})")
+            self._log_event(
+                f"[pit] Loaded PIT: {os.path.basename(path)} — {pit.entry_count} partitions (v{pit.version})"
+            )
         except PITParseError as e:
             self._log_event(f"[pit] Parse error: {e}")
         except Exception as e:
@@ -920,6 +938,7 @@ class NFlasherWindow(Adw.ApplicationWindow):
             f = dialog.save_finish(result)
             if f:
                 from .pit import serialize_pit
+
                 raw = serialize_pit(self._pit_data)
                 with open(f.get_path(), "wb") as fh:
                     fh.write(raw)
@@ -930,9 +949,7 @@ class NFlasherWindow(Adw.ApplicationWindow):
     def _on_reboot(self, mode: str):
         self._log_event(f"[reboot] Rebooting device → {mode}")
         threading.Thread(
-            target=reboot_device,
-            args=(mode, self._backend, self._log_event),
-            daemon=True
+            target=reboot_device, args=(mode, self._backend, self._log_event), daemon=True
         ).start()
 
     def _show_dialog(self, title: str, body: str):
@@ -944,6 +961,7 @@ class NFlasherWindow(Adw.ApplicationWindow):
 
 
 # ── Application ──────────────────────────────────────────────────────────────
+
 
 class NFlasherApp(Adw.Application):
     def __init__(self):

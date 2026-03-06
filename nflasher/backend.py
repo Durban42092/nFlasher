@@ -21,39 +21,41 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 DEFAULT_NPHONECLI = "nphonecli"
-DEFAULT_HEIMDALL  = "heimdall"
-DEFAULT_ODIN4     = "odin4"
+DEFAULT_HEIMDALL = "heimdall"
+DEFAULT_ODIN4 = "odin4"
 
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class DeviceState(Enum):
     DISCONNECTED = auto()
-    DETECTED     = auto()
-    CONNECTED    = auto()
-    DOWNLOADING  = auto()
-    ERROR        = auto()
+    DETECTED = auto()
+    CONNECTED = auto()
+    DOWNLOADING = auto()
+    ERROR = auto()
 
 
 class FlashBackend(Enum):
     NPHONECLI = "nphonecli"
-    HEIMDALL  = "heimdall"
-    ODIN4     = "odin4"
-    AUTO      = "auto"
+    HEIMDALL = "heimdall"
+    ODIN4 = "odin4"
+    AUTO = "auto"
 
 
 # ── Dataclasses ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DeviceInfo:
-    serial:   str  = ""
-    model:    str  = ""
-    product:  str  = ""
-    firmware: str  = ""
-    imei:     str  = ""
-    chip:     str  = ""
-    protocol: str  = ""
-    raw:      dict = field(default_factory=dict)
+    serial: str = ""
+    model: str = ""
+    product: str = ""
+    firmware: str = ""
+    imei: str = ""
+    chip: str = ""
+    protocol: str = ""
+    raw: dict = field(default_factory=dict)
 
     def __str__(self) -> str:
         parts = []
@@ -76,31 +78,32 @@ class DeviceInfo:
 
 @dataclass
 class FlashPartition:
-    flag:     str       # --bl, --ap, --cp, --csc, --userdata, --pit
+    flag: str  # --bl, --ap, --cp, --csc, --userdata, --pit
     filepath: str
-    name:     str = ""  # partition name override (heimdall)
+    name: str = ""  # partition name override (heimdall)
 
 
 @dataclass
 class FlashOptions:
-    reboot:            bool = True
-    t_flash:           bool = False
-    efs_clear:         bool = False
+    reboot: bool = True
+    t_flash: bool = False
+    efs_clear: bool = False
     bootloader_update: bool = False
-    reset_time:        bool = False
-    flash_lock:        bool = False
-    verify:            bool = False
-    resume:            bool = False
+    reset_time: bool = False
+    flash_lock: bool = False
+    verify: bool = False
+    resume: bool = False
 
 
 # ── Backend helpers ───────────────────────────────────────────────────────────
+
 
 def detect_backend() -> FlashBackend:
     """Return the first available flash backend found on PATH."""
     for backend, cmd in [
         (FlashBackend.NPHONECLI, DEFAULT_NPHONECLI),
-        (FlashBackend.ODIN4,     DEFAULT_ODIN4),
-        (FlashBackend.HEIMDALL,  DEFAULT_HEIMDALL),
+        (FlashBackend.ODIN4, DEFAULT_ODIN4),
+        (FlashBackend.HEIMDALL, DEFAULT_HEIMDALL),
     ]:
         if shutil.which(cmd):
             return backend
@@ -111,8 +114,8 @@ def backend_version(backend: FlashBackend) -> str:
     """Return version string for the given backend binary."""
     cmd_map: dict[FlashBackend, list[str]] = {
         FlashBackend.NPHONECLI: [DEFAULT_NPHONECLI, "--version"],
-        FlashBackend.ODIN4:     [DEFAULT_ODIN4,     "--version"],
-        FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "--version"],  # heimdall uses --version
+        FlashBackend.ODIN4: [DEFAULT_ODIN4, "--version"],
+        FlashBackend.HEIMDALL: [DEFAULT_HEIMDALL, "--version"],  # heimdall uses --version
     }
     cmd = cmd_map.get(backend)
     if not cmd:
@@ -125,25 +128,25 @@ def backend_version(backend: FlashBackend) -> str:
 
 
 def reboot_device(
-    mode:    str,
+    mode: str,
     backend: FlashBackend,
-    log_fn:  Callable[[str], None],
+    log_fn: Callable[[str], None],
 ) -> None:
     """Reboot the connected device into the specified mode."""
     cmd_map: dict[FlashBackend, dict[str, list[str]]] = {
         FlashBackend.NPHONECLI: {
-            "normal":   [DEFAULT_NPHONECLI, "reboot"],
+            "normal": [DEFAULT_NPHONECLI, "reboot"],
             "download": [DEFAULT_NPHONECLI, "reboot", "--download"],
             "recovery": [DEFAULT_NPHONECLI, "reboot", "--recovery"],
         },
         FlashBackend.HEIMDALL: {
-            "normal":   [DEFAULT_HEIMDALL, "reset"],
+            "normal": [DEFAULT_HEIMDALL, "reset"],
             "download": [DEFAULT_HEIMDALL, "download-mode"],
             "recovery": [DEFAULT_HEIMDALL, "reset"],
         },
         # odin4 is flash-only; reboot is handled by nphonecli/heimdall
         FlashBackend.ODIN4: {
-            "normal":   [DEFAULT_NPHONECLI, "reboot"],
+            "normal": [DEFAULT_NPHONECLI, "reboot"],
             "download": [DEFAULT_NPHONECLI, "reboot", "--download"],
             "recovery": [DEFAULT_NPHONECLI, "reboot", "--recovery"],
         },
@@ -161,6 +164,7 @@ def reboot_device(
 
 # ── FlashEngine ───────────────────────────────────────────────────────────────
 
+
 class FlashEngine:
     """
     Executes flash operations via nphonecli / odin4 / heimdall.
@@ -169,18 +173,18 @@ class FlashEngine:
 
     def __init__(
         self,
-        on_log:      Callable[[str], None],
+        on_log: Callable[[str], None],
         on_progress: Callable[[float, str], None],
-        on_done:     Callable[[bool, str], None],
-        backend:     FlashBackend = FlashBackend.AUTO,
+        on_done: Callable[[bool, str], None],
+        backend: FlashBackend = FlashBackend.AUTO,
     ):
-        self.on_log      = on_log
+        self.on_log = on_log
         self.on_progress = on_progress
-        self.on_done     = on_done
-        self.backend     = detect_backend() if backend == FlashBackend.AUTO else backend
-        self._proc         = None
+        self.on_done = on_done
+        self.backend = detect_backend() if backend == FlashBackend.AUTO else backend
+        self._proc = None
         self._flash_thread = None
-        self._abort_event  = threading.Event()
+        self._abort_event = threading.Event()
 
     def _log(self, msg: str) -> None:
         self.on_log(msg)
@@ -229,7 +233,7 @@ class FlashEngine:
             text=True,
             bufsize=1,
         )
-        progress_re = re.compile(r'(\d+(?:\.\d+)?)\s*%')
+        progress_re = re.compile(r"(\d+(?:\.\d+)?)\s*%")
         for line in self._proc.stdout:
             if self._abort_event.is_set():
                 self._proc.terminate()
@@ -271,8 +275,12 @@ class FlashEngine:
     ) -> tuple[bool, str]:
         cmd = ["odin4"]
         flag_map = {
-            "--bl": "-b", "--ap": "-a", "--cp": "-c",
-            "--csc": "-s", "--userdata": "-u", "--pit": "--pit",
+            "--bl": "-b",
+            "--ap": "-a",
+            "--cp": "-c",
+            "--csc": "-s",
+            "--userdata": "-u",
+            "--pit": "--pit",
         }
         for p in partitions:
             odin_flag = flag_map.get(p.flag, p.flag)
@@ -287,10 +295,10 @@ class FlashEngine:
     ) -> tuple[bool, str]:
         cmd = ["heimdall", "flash"]
         hl_map = {
-            "--bl":       "BOOT",
-            "--ap":       "SYSTEM",
-            "--cp":       "MODEM",
-            "--csc":      "CSC",
+            "--bl": "BOOT",
+            "--ap": "SYSTEM",
+            "--cp": "MODEM",
+            "--csc": "CSC",
             "--userdata": "USERDATA",
         }
         for p in partitions:
@@ -316,19 +324,20 @@ class FlashEngine:
 
 # ── PITManager ────────────────────────────────────────────────────────────────
 
+
 class PITManager:
     """Downloads PIT partition tables from a connected device."""
 
     def __init__(self, on_log: Callable[[str], None], backend: FlashBackend):
-        self.on_log  = on_log
+        self.on_log = on_log
         self.backend = backend
 
     def download_pit(self, dest_path: str) -> bool:
         cmd_map: dict[FlashBackend, list[str]] = {
             FlashBackend.NPHONECLI: [DEFAULT_NPHONECLI, "pit", "--save", dest_path],
-            FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "download", "--pit", dest_path],
+            FlashBackend.HEIMDALL: [DEFAULT_HEIMDALL, "download", "--pit", dest_path],
             # odin4 does not support standalone PIT download; fall back to nphonecli
-            FlashBackend.ODIN4:     [DEFAULT_NPHONECLI, "pit", "--save", dest_path],
+            FlashBackend.ODIN4: [DEFAULT_NPHONECLI, "pit", "--save", dest_path],
         }
         cmd = cmd_map.get(self.backend)
         if not cmd:
@@ -347,6 +356,7 @@ class PITManager:
 
 # ── DeviceManager ─────────────────────────────────────────────────────────────
 
+
 class DeviceManager:
     """Polls for Samsung devices in Download Mode and emits state changes."""
 
@@ -355,15 +365,15 @@ class DeviceManager:
     def __init__(
         self,
         on_state_change: Callable[[DeviceState, DeviceInfo | None], None],
-        on_log:          Callable[[str], None],
-        backend:         FlashBackend,
+        on_log: Callable[[str], None],
+        backend: FlashBackend,
     ):
         self.on_state_change = on_state_change
-        self.on_log          = on_log
-        self.backend         = backend
-        self.state           = DeviceState.DISCONNECTED
-        self._poll_thread    = None
-        self._stop_event     = threading.Event()
+        self.on_log = on_log
+        self.backend = backend
+        self.state = DeviceState.DISCONNECTED
+        self._poll_thread = None
+        self._stop_event = threading.Event()
 
     def start_polling(self) -> None:
         self._stop_event.clear()
@@ -385,8 +395,8 @@ class DeviceManager:
     def _detect_device(self) -> tuple[DeviceState, DeviceInfo | None]:
         probe_map: dict[FlashBackend, Callable[[], DeviceInfo | None]] = {
             FlashBackend.NPHONECLI: self._probe_nphonecli,
-            FlashBackend.ODIN4:     self._probe_nphonecli,  # odin4 has no device-info cmd
-            FlashBackend.HEIMDALL:  self._probe_heimdall,
+            FlashBackend.ODIN4: self._probe_nphonecli,  # odin4 has no device-info cmd
+            FlashBackend.HEIMDALL: self._probe_heimdall,
         }
         probe = probe_map.get(self.backend, self._probe_nphonecli)
         info = probe()
@@ -404,19 +414,21 @@ class DeviceManager:
         try:
             result = subprocess.run(
                 [DEFAULT_NPHONECLI, "devices", "--json"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0 and result.stdout.strip():
                 data = json.loads(result.stdout)
                 return DeviceInfo(
-                    serial   = data.get("serial",   ""),
-                    model    = data.get("model",    ""),
-                    product  = data.get("product",  ""),
-                    firmware = data.get("firmware", ""),
-                    imei     = data.get("imei",     ""),
-                    chip     = data.get("chip",     ""),
-                    protocol = data.get("protocol", "ODIN"),
-                    raw      = data,
+                    serial=data.get("serial", ""),
+                    model=data.get("model", ""),
+                    product=data.get("product", ""),
+                    firmware=data.get("firmware", ""),
+                    imei=data.get("imei", ""),
+                    chip=data.get("chip", ""),
+                    protocol=data.get("protocol", "ODIN"),
+                    raw=data,
                 )
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return None
@@ -427,7 +439,9 @@ class DeviceManager:
         try:
             result = subprocess.run(
                 [DEFAULT_NPHONECLI, "devices"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode != 0 or not result.stdout.strip():
                 return None
@@ -457,7 +471,9 @@ class DeviceManager:
         try:
             result = subprocess.run(
                 [DEFAULT_HEIMDALL, "detect"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0 and result.stdout.strip():
                 return DeviceInfo(protocol="HEIMDALL")

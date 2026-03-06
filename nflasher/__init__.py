@@ -50,5 +50,5 @@ from .pit import (
 )
 
 __version__ = "1.0.0"
-__author__  = "nFlasher"
+__author__ = "nFlasher"
 __license__ = "GPL-3.0"

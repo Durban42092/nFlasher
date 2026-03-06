@@ -10,65 +10,65 @@ from enum import IntEnum
 
 class PITBinaryType(IntEnum):
     PHONE_BOOT = 0
-    PDA        = 1
-    MODEM      = 2
-    CSC        = 3
-    USERDATA   = 4
-    UNKNOWN    = 255
+    PDA = 1
+    MODEM = 2
+    CSC = 3
+    USERDATA = 4
+    UNKNOWN = 255
 
 
 class PITDeviceType(IntEnum):
-    ONENAND  = 0
-    NAND     = 1
+    ONENAND = 0
+    NAND = 1
     MOVINAND = 2
-    EMMC     = 3
-    SPI      = 4
-    IDE      = 5
+    EMMC = 3
+    SPI = 4
+    IDE = 5
     NAND_X16 = 6
     NAND_ONLY = 7
-    UNKNOWN  = 255
+    UNKNOWN = 255
 
 
 class PITAttributeType(IntEnum):
     WRITE_ONCE = 0
-    STL        = 1
-    BMLWRITE   = 2
-    CRC        = 0x100
-    UNKNOWN    = 0xFFFF
+    STL = 1
+    BMLWRITE = 2
+    CRC = 0x100
+    UNKNOWN = 0xFFFF
 
 
 class PITFilesystemType(IntEnum):
-    NONE     = 0
+    NONE = 0
     MOVINAND = 1
-    YAFFS2   = 2
-    EXT4     = 4
-    FAT      = 8
-    UNKNOWN  = 0xFF
+    YAFFS2 = 2
+    EXT4 = 4
+    FAT = 8
+    UNKNOWN = 0xFF
 
 
-PIT_MAGIC         = 0x12349876
+PIT_MAGIC = 0x12349876
 PIT_ENTRY_V1_SIZE = 132
 PIT_ENTRY_V2_SIZE = 136
-PIT_HEADER_SIZE   = 28
+PIT_HEADER_SIZE = 28
 
 
 @dataclass
 class PITEntry:
-    binary_type:    int = 0
-    device_type:    int = 0
-    identifier:     int = 0
-    attributes:     int = 0
-    update_attrib:  int = 0
-    block_size:     int = 0
-    block_count:    int = 0
-    file_offset:    int = 0  # v1 only
-    file_size:      int = 0
+    binary_type: int = 0
+    device_type: int = 0
+    identifier: int = 0
+    attributes: int = 0
+    update_attrib: int = 0
+    block_size: int = 0
+    block_count: int = 0
+    file_offset: int = 0  # v1 only
+    file_size: int = 0
     partition_name: str = ""
     flash_filename: str = ""
-    fota_filename:  str = ""
+    fota_filename: str = ""
     # v2 extras (+8 bytes = 136 total)
-    unknown1:       int = 0
-    unknown2:       int = 0
+    unknown1: int = 0
+    unknown2: int = 0
 
     @property
     def size_bytes(self) -> int:
@@ -98,10 +98,10 @@ class PITEntry:
 
 @dataclass
 class PITFile:
-    version:   int              = 1
-    gang_name: str              = ""
-    project:   str              = ""
-    entries:   list[PITEntry]   = field(default_factory=list)
+    version: int = 1
+    gang_name: str = ""
+    project: str = ""
+    entries: list[PITEntry] = field(default_factory=list)
 
     @property
     def entry_count(self) -> int:
@@ -147,8 +147,15 @@ def parse_pit(data: bytes) -> PITFile:
 def _parse_entry(data: bytes, offset: int, version: int) -> PITEntry:
     e = PITEntry()
 
-    e.binary_type, e.device_type, e.identifier, e.attributes, e.update_attrib, \
-        e.block_size, e.block_count = struct.unpack_from("<IIIIIII", data, offset)
+    (
+        e.binary_type,
+        e.device_type,
+        e.identifier,
+        e.attributes,
+        e.update_attrib,
+        e.block_size,
+        e.block_count,
+    ) = struct.unpack_from("<IIIIIII", data, offset)
     offset += 28
 
     if version == 1:
@@ -162,20 +169,20 @@ def _parse_entry(data: bytes, offset: int, version: int) -> PITEntry:
     offset += 32
     e.flash_filename = _read_cstr(data, offset, 32)
     offset += 32
-    e.fota_filename  = _read_cstr(data, offset, 32)
+    e.fota_filename = _read_cstr(data, offset, 32)
 
     return e
 
 
 def _read_cstr(data: bytes, offset: int, max_len: int) -> str:
-    chunk = data[offset:offset + max_len]
-    null_pos = chunk.find(b'\x00')
+    chunk = data[offset : offset + max_len]
+    null_pos = chunk.find(b"\x00")
     if null_pos >= 0:
         chunk = chunk[:null_pos]
     try:
-        return chunk.decode('utf-8', errors='replace')
+        return chunk.decode("utf-8", errors="replace")
     except Exception:
-        return chunk.decode('latin-1', errors='replace')
+        return chunk.decode("latin-1", errors="replace")
 
 
 def serialize_pit(pit: PITFile) -> bytes:
@@ -184,17 +191,26 @@ def serialize_pit(pit: PITFile) -> bytes:
         "<IIIIIII",
         PIT_MAGIC,
         len(pit.entries),
-        0, 0, 0, 0, 0,  # reserved unknowns
+        0,
+        0,
+        0,
+        0,
+        0,  # reserved unknowns
     )
-    entries_data = b''.join(_serialize_entry(e, pit.version) for e in pit.entries)
+    entries_data = b"".join(_serialize_entry(e, pit.version) for e in pit.entries)
     return header + entries_data
 
 
 def _serialize_entry(e: PITEntry, version: int) -> bytes:
     data = struct.pack(
         "<IIIIIII",
-        e.binary_type, e.device_type, e.identifier,
-        e.attributes, e.update_attrib, e.block_size, e.block_count,
+        e.binary_type,
+        e.device_type,
+        e.identifier,
+        e.attributes,
+        e.update_attrib,
+        e.block_size,
+        e.block_count,
     )
     if version == 1:
         data += struct.pack("<II", e.file_offset, e.file_size)
@@ -208,8 +224,8 @@ def _serialize_entry(e: PITEntry, version: int) -> bytes:
 
 
 def _write_cstr(s: str, max_len: int) -> bytes:
-    encoded = s.encode('utf-8', errors='replace')[:max_len - 1]
-    return encoded + b'\x00' * (max_len - len(encoded))
+    encoded = s.encode("utf-8", errors="replace")[: max_len - 1]
+    return encoded + b"\x00" * (max_len - len(encoded))
 
 
 def pit_summary(pit: PITFile) -> str:
@@ -222,7 +238,7 @@ def pit_summary(pit: PITFile) -> str:
         "-" * 104,
     ]
     for i, e in enumerate(pit.entries):
-        size_mb  = e.size_bytes / (1024 * 1024) if e.size_bytes else 0
+        size_mb = e.size_bytes / (1024 * 1024) if e.size_bytes else 0
         size_str = f"{size_mb:.1f} MiB" if size_mb >= 1 else f"{e.size_bytes} B"
         lines.append(
             f"{i:<4} {e.partition_name:<20} {e.binary_type_name:<12} "
