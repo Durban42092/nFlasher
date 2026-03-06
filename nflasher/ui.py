@@ -8,26 +8,32 @@ Implements:
   - nphonecli/nphonekit backend       (device detection, flash, reboot)
 """
 
-import gi
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-
-from gi.repository import Gtk, GLib, Gdk, Pango, Adw
 import os
 import sys
 import tempfile
 import threading
-from typing import Optional
 from datetime import datetime
 
-from .backend import (
-    DeviceManager, FlashEngine, PITManager,
-    FlashBackend, FlashOptions, FlashPartition, DeviceInfo, DeviceState,
-    detect_backend, backend_version, reboot_device,
-    DEFAULT_NPHONECLI, DEFAULT_HEIMDALL, DEFAULT_ODIN4,
-)
-from .pit import parse_pit, pit_summary, PITParseError
+import gi
 
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+
+from .backend import (  # noqa: E402
+    DeviceInfo,
+    DeviceManager,
+    DeviceState,
+    FlashBackend,
+    FlashEngine,
+    FlashOptions,
+    FlashPartition,
+    PITManager,
+    backend_version,
+    detect_backend,
+    reboot_device,
+)
+from .pit import PITParseError, parse_pit, pit_summary  # noqa: E402
 
 APP_ID      = "io.github.nflasher"
 APP_NAME    = "nFlasher"
@@ -302,7 +308,7 @@ class PartitionRow(Gtk.Box):
         except GLib.Error:
             pass
 
-    def get_partition(self) -> Optional[FlashPartition]:
+    def get_partition(self) -> FlashPartition | None:
         if self.chk.get_active() and self.filepath:
             return FlashPartition(flag=self.flag, filepath=self.filepath)
         return None
@@ -619,7 +625,8 @@ class NFlasherWindow(Adw.ApplicationWindow):
         log_lbl.add_css_class("nf-section-header")
         hdr.append(log_lbl)
 
-        spc = Gtk.Box(); spc.set_hexpand(True)
+        spc = Gtk.Box()
+        spc.set_hexpand(True)
         hdr.append(spc)
 
         clr_btn = Gtk.Button(label="Clear")
@@ -688,7 +695,8 @@ class NFlasherWindow(Adw.ApplicationWindow):
         self._status_lbl.set_xalign(0)
         bar.append(self._status_lbl)
 
-        spc = Gtk.Box(); spc.set_hexpand(True)
+        spc = Gtk.Box()
+        spc.set_hexpand(True)
         bar.append(spc)
 
         ts_lbl = Gtk.Label(label="nFlasher — Samsung Flash Tool")
@@ -772,10 +780,10 @@ class NFlasherWindow(Adw.ApplicationWindow):
 
     # ── Device state callbacks ───────────────────────────────────────────────
 
-    def _on_device_state(self, state: DeviceState, info: Optional[DeviceInfo]):
+    def _on_device_state(self, state: DeviceState, info: DeviceInfo | None):
         GLib.idle_add(self._update_device_ui, state, info)
 
-    def _update_device_ui(self, state: DeviceState, info: Optional[DeviceInfo]):
+    def _update_device_ui(self, state: DeviceState, info: DeviceInfo | None):
         if state == DeviceState.CONNECTED:
             self._device_status_lbl.set_label("● CONNECTED")
             self._device_status_lbl.remove_css_class("nf-device-disconnected")
