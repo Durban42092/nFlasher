@@ -11,7 +11,9 @@ nphonecli protocol reference:
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
 import subprocess
 import threading
 from collections.abc import Callable
@@ -23,7 +25,7 @@ DEFAULT_HEIMDALL  = "heimdall"
 DEFAULT_ODIN4     = "odin4"
 
 
-# ── Enums ────────────────────────────────────────────────────────────────────
+# ── Enums ─────────────────────────────────────────────────────────────────────
 
 class DeviceState(Enum):
     DISCONNECTED = auto()
@@ -40,7 +42,7 @@ class FlashBackend(Enum):
     AUTO      = "auto"
 
 
-# ── Dataclasses ──────────────────────────────────────────────────────────────
+# ── Dataclasses ───────────────────────────────────────────────────────────────
 
 @dataclass
 class DeviceInfo:
@@ -95,7 +97,6 @@ class FlashOptions:
 
 def detect_backend() -> FlashBackend:
     """Return the first available flash backend found on PATH."""
-    import shutil
     for backend, cmd in [
         (FlashBackend.NPHONECLI, DEFAULT_NPHONECLI),
         (FlashBackend.ODIN4,     DEFAULT_ODIN4),
@@ -111,7 +112,7 @@ def backend_version(backend: FlashBackend) -> str:
     cmd_map: dict[FlashBackend, list[str]] = {
         FlashBackend.NPHONECLI: [DEFAULT_NPHONECLI, "--version"],
         FlashBackend.ODIN4:     [DEFAULT_ODIN4,     "--version"],
-        FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "version"],
+        FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "--version"],  # heimdall uses --version
     }
     cmd = cmd_map.get(backend)
     if not cmd:
@@ -140,10 +141,11 @@ def reboot_device(
             "download": [DEFAULT_HEIMDALL, "download-mode"],
             "recovery": [DEFAULT_HEIMDALL, "reset"],
         },
+        # odin4 is flash-only; reboot is handled by nphonecli/heimdall
         FlashBackend.ODIN4: {
-            "normal":   [DEFAULT_ODIN4, "--reboot"],
-            "download": [DEFAULT_ODIN4, "--reboot", "download"],
-            "recovery": [DEFAULT_ODIN4, "--reboot", "recovery"],
+            "normal":   [DEFAULT_NPHONECLI, "reboot"],
+            "download": [DEFAULT_NPHONECLI, "reboot", "--download"],
+            "recovery": [DEFAULT_NPHONECLI, "reboot", "--recovery"],
         },
     }
     cmd = cmd_map.get(backend, {}).get(mode)
@@ -201,6 +203,10 @@ class FlashEngine:
         self._flash_thread.start()
 
     def _run_flash(self, partitions: list[FlashPartition], options: FlashOptions) -> None:
+        # Guard here too — tests may call _run_flash directly
+        if not partitions:
+            self.on_done(False, "No partitions selected")
+            return
         try:
             if self.backend == FlashBackend.NPHONECLI:
                 ok, msg = self._flash_nphonecli(partitions, options)
@@ -321,7 +327,8 @@ class PITManager:
         cmd_map: dict[FlashBackend, list[str]] = {
             FlashBackend.NPHONECLI: [DEFAULT_NPHONECLI, "pit", "--save", dest_path],
             FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "download", "--pit", dest_path],
-            FlashBackend.ODIN4:     [DEFAULT_ODIN4,     "--pit", dest_path],
+            # odin4 does not support standalone PIT download; fall back to nphonecli
+            FlashBackend.ODIN4:     [DEFAULT_NPHONECLI, "pit", "--save", dest_path],
         }
         cmd = cmd_map.get(self.backend)
         if not cmd:
@@ -354,9 +361,9 @@ class DeviceManager:
         self.on_state_change = on_state_change
         self.on_log          = on_log
         self.backend         = backend
+        self.state           = DeviceState.DISCONNECTED
         self._poll_thread    = None
         self._stop_event     = threading.Event()
-        self._last_state     = DeviceState.DISCONNECTED
 
     def start_polling(self) -> None:
         self._stop_event.clear()
@@ -367,25 +374,93 @@ class DeviceManager:
         self._stop_event.set()
 
     def _poll_loop(self) -> None:
-        while not self._stop_event.wait(self.POLL_INTERVAL):
-            state, info = self._detect_device()
-            if state != self._last_state:
-                self._last_state = state
-                self.on_state_change(state, info)
+        # Poll immediately on start, then on each interval
+        while not self._stop_event.is_set():
+            new_state, info = self._detect_device()
+            if new_state != self.state:
+                self.state = new_state
+                self.on_state_change(new_state, info)
+            self._stop_event.wait(self.POLL_INTERVAL)
 
     def _detect_device(self) -> tuple[DeviceState, DeviceInfo | None]:
-        cmd_map: dict[FlashBackend, list[str]] = {
-            FlashBackend.NPHONECLI: [DEFAULT_NPHONECLI, "devices"],
-            FlashBackend.HEIMDALL:  [DEFAULT_HEIMDALL,  "detect"],
-            FlashBackend.ODIN4:     [DEFAULT_ODIN4,     "--list"],
+        probe_map: dict[FlashBackend, Callable[[], DeviceInfo | None]] = {
+            FlashBackend.NPHONECLI: self._probe_nphonecli,
+            FlashBackend.ODIN4:     self._probe_nphonecli,  # odin4 has no device-info cmd
+            FlashBackend.HEIMDALL:  self._probe_heimdall,
         }
-        cmd = cmd_map.get(self.backend)
-        if not cmd:
-            return DeviceState.DISCONNECTED, None
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if result.returncode == 0 and result.stdout.strip():
-                return DeviceState.CONNECTED, DeviceInfo()
-        except Exception:
-            pass
+        probe = probe_map.get(self.backend, self._probe_nphonecli)
+        info = probe()
+        if info is not None:
+            return DeviceState.CONNECTED, info
         return DeviceState.DISCONNECTED, None
+
+    def _probe_nphonecli(self) -> DeviceInfo | None:
+        """
+        Try JSON output first (nphonecli devices --json), fall back to
+        plain-text parsing if the --json flag is not supported.
+        Returns None if no device is found or binary is unavailable.
+        """
+        # --- attempt 1: structured JSON ---
+        try:
+            result = subprocess.run(
+                [DEFAULT_NPHONECLI, "devices", "--json"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout)
+                return DeviceInfo(
+                    serial   = data.get("serial",   ""),
+                    model    = data.get("model",    ""),
+                    product  = data.get("product",  ""),
+                    firmware = data.get("firmware", ""),
+                    imei     = data.get("imei",     ""),
+                    chip     = data.get("chip",     ""),
+                    protocol = data.get("protocol", "ODIN"),
+                    raw      = data,
+                )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None
+        except (json.JSONDecodeError, KeyError):
+            pass  # fall through to text probe
+
+        # --- attempt 2: plain-text fallback ---
+        try:
+            result = subprocess.run(
+                [DEFAULT_NPHONECLI, "devices"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+            info = DeviceInfo(protocol="ODIN")
+            for line in result.stdout.splitlines():
+                key, _, val = line.partition(":")
+                val = val.strip()
+                key = key.strip().lower()
+                if key == "model":
+                    info.model = val
+                elif key == "serial":
+                    info.serial = val
+                elif key == "firmware":
+                    info.firmware = val
+                elif key == "product":
+                    info.product = val
+                elif key == "chip":
+                    info.chip = val
+                elif key == "imei":
+                    info.imei = val
+            return info if (info.model or info.serial) else None
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None
+
+    def _probe_heimdall(self) -> DeviceInfo | None:
+        """Run `heimdall detect` and return a basic DeviceInfo on success."""
+        try:
+            result = subprocess.run(
+                [DEFAULT_HEIMDALL, "detect"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return DeviceInfo(protocol="HEIMDALL")
+            return None
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None

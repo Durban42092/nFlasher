@@ -864,7 +864,8 @@ class NFlasherWindow(Adw.ApplicationWindow):
         self._status_lbl.set_label("Aborting…")
 
     def _on_download_pit(self, _):
-        tmp = tempfile.mktemp(suffix=".pit", prefix="nflasher_")
+        fd, tmp = tempfile.mkstemp(suffix=".pit", prefix="nflasher_")
+        os.close(fd)
         self._log_event(f"[pit] Downloading PIT from device → {tmp}")
         def do_dl():
             ok = self._pit_mgr.download_pit(tmp)
