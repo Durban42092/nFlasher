@@ -1,24 +1,39 @@
-name: CI
-permissions:
-  contents: read
+name: CI / CD
 
 on:
   push:
     branches: [main, dev]
+    tags:     ["v*.*.*"]
   pull_request:
     branches: [main]
 
+# Least-privilege default — release job explicitly elevates to write
+permissions:
+  contents: read
+
+# Cancel in-flight runs for the same ref (saves runner minutes on rapid pushes)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_DEFAULT: "3.12"
+
 jobs:
-  # ── Lint & type check ───────────────────────────────────────────────────────
+
+  # ── 1. LINT ─────────────────────────────────────────────────────────────────
+  # Fast gate: ruff + black must pass before any runners spin up for tests
+  # ────────────────────────────────────────────────────────────────────────────
   lint:
     name: Lint (ruff + black)
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_DEFAULT }}
           cache: pip
 
       - name: Install lint tools
@@ -30,10 +45,13 @@ jobs:
       - name: black (check only)
         run: black --check --diff nflasher/
 
-  # ── Unit tests ───────────────────────────────────────────────────────────────
+  # ── 2. TEST MATRIX ──────────────────────────────────────────────────────────
+  # Runs 3.10 / 3.11 / 3.12 in parallel, gated on lint passing
+  # ────────────────────────────────────────────────────────────────────────────
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -52,39 +70,94 @@ jobs:
           pip install pyusb pytest pytest-cov
           pip install -e .
 
-      - name: Run tests
+      - name: Run tests + coverage
         run: pytest tests/ -v --cov=nflasher --cov-report=term-missing --cov-report=xml
 
-      - name: Upload coverage
-        if: matrix.python-version == '3.12'
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == env.PYTHON_DEFAULT
         uses: codecov/codecov-action@v4
         with:
           file: coverage.xml
           fail_ci_if_error: false
 
-  # ── Package build ────────────────────────────────────────────────────────────
+  # ── 3. BUILD ─────────────────────────────────────────────────────────────────
+  # Builds wheel + sdist once, after all matrix tests pass.
+  # Uploads a shared dist/ artifact consumed by the release job.
+  # ────────────────────────────────────────────────────────────────────────────
   build:
     name: Build wheel + sdist
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: test
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
 
       - name: Build
         run: |
           pip install build
           python -m build
 
-      - name: Check dist
+      - name: Validate dist (twine check)
         run: |
           pip install twine
           twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+          retention-days: 7
+
+  # ── 4. RELEASE ───────────────────────────────────────────────────────────────
+  # Only runs on v*.*.* tags. Downloads the artifact built above — no rebuild.
+  # Auto-marks alpha/beta/rc tags as pre-release.
+  # ────────────────────────────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write  # required to create GitHub releases
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so CHANGELOG.md is always present
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Extract changelog section for this release
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.notes }}
+          files: dist/*
+          draft: false
+          prerelease: >-
+            ${{
+              contains(github.ref_name, 'alpha') ||
+              contains(github.ref_name, 'beta')  ||
+              contains(github.ref_name, 'rc')
+            }}
